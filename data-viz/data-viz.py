@@ -31,7 +31,24 @@ MAP_STYLES = {
 df = load_data('bangkok_traffy.csv')
 
 # drop NaN coords
-df = df.dropna(subset=['coords'])
+df = df.dropna(subset=['coords', 'timestamp', 'last_activity', 'state'])
+
+#filter out rows which timestamp >= last_activity
+df = df[df['timestamp'] < df['last_activity']]
+
+# drop rows with state is not 'เสร็จสิ้น'
+df = df[df['state'] == 'เสร็จสิ้น']
+
+def toDate(serie):
+    return pd.to_datetime(serie, format='ISO8601').dt.tz_localize(None)
+
+df['timestamp'] = toDate(df['timestamp'])
+df['last_activity'] = toDate(df['last_activity'])
+
+df['duration'] = (df['last_activity'] - df['timestamp']).dt.total_seconds() // 60
+
+# remove those with duration > 20k
+df = df[df['duration'] <= 20000]
 
 # use only 10000 rows for testing
 df = df.sample(n=10000, random_state=42)
@@ -46,12 +63,28 @@ df['latitude'] = df['coords'].apply(lambda x: float(x.split(',')[1]))
 df['longitude'] = df['coords'].apply(lambda x: float(x.split(',')[0]))
 
 
+st.write(df)
+
+#plot duration histogram
+st.subheader("Duration Histogram")
+fig = px.histogram(df, x='duration', nbins=100, title='Duration Histogram')
+fig.update_layout(
+    xaxis_title='Duration (minutes)',
+    yaxis_title='Count',
+    xaxis=dict(
+        tickmode='linear',
+        dtick=1000
+    )
+)
+st.plotly_chart(fig, use_container_width=True)
+
 try:
-    coords = df[['latitude', 'longitude']]
-    db = DBSCAN(eps=0.001, min_samples=3).fit(coords)
+    duration = df[['duration']]
+    kmeans = KMeans(n_clusters=5, random_state=77, n_init='auto')
+    kmeans.fit(duration)
     
     # Add cluster labels to dataframe
-    df['cluster'] = db.labels_
+    df['cluster'] = kmeans.labels_
     
     # Analyze clusters
     clusters_count = df['cluster'].value_counts()
@@ -74,37 +107,90 @@ try:
         zoom=12,
         pitch=0,
     )
+    
+    # Step 1: Sort clusters by min duration
+    # Compute min duration per cluster
+    min_durations = df.groupby('cluster')['duration'].min()
 
+    # Sort clusters by min duration
+    sorted_clusters = min_durations.sort_values().index.tolist()
+
+    # Create a mapping from cluster number to rank (starting from 1)
+    cluster_ranks = {cluster: rank+1 for rank, cluster in enumerate(sorted_clusters)}
+
+
+    # Step 2: Add multiselect box to choose clusters to display
+    selected_clusters = []
+    st.markdown("### Select Clusters to Display")
+
+    for cluster in sorted_clusters:
+        if cluster == -1:
+            continue  # skip noise
+        rank = cluster_ranks[cluster]
+        checkbox_label = f"Cluster {rank}"
+        if st.checkbox(checkbox_label, value=True, key=f"cluster_{cluster}"):
+            selected_clusters.append(cluster)
+
+    # Step 3: Filter data for selected clusters
+    filtered_df = df[df['cluster'].isin(selected_clusters)]
+    filtered_viz_data = viz_data[viz_data['cluster'].isin(selected_clusters)]
+    
+    viz_data['cluster_rank'] = viz_data['cluster'].map(cluster_ranks)
+    
+    filtered_viz_data = viz_data[viz_data['cluster'].isin(selected_clusters)]
+
+    # Step 4: Display map
     st.pydeck_chart(
         pdk.Deck(
             map_style=MAP_STYLES[map_style],
-            initial_view_state=pdk.ViewState(
-                latitude=df['latitude'].mean(),
-                longitude=df['longitude'].mean(),
-                zoom=12,
-                pitch=0,
-            ),
+            initial_view_state=view_state,
             layers=[
                 pdk.Layer(
                     'ScatterplotLayer',
-                    data=viz_data,
+                    data=filtered_viz_data,
                     get_position='[longitude, latitude]',
                     get_fill_color='color',
-                    get_radius=3,
+                    get_radius=10,
                     radius_scale=10,
                     pickable=True,
                     opacity=1,
                 ),
             ],
             tooltip={
-                'html': '<b>Cluster:</b> {cluster}<br><b>Price:</b> {price}',
+                'html': '<b>Cluster:</b> {cluster_rank}<br><b>ticket_id :</b> {ticket_id}',
                 'style': {'color': 'white', 'backgroundColor': 'black'}
             }
         )
     )
-    
-    st.subheader('Clustering Analysis')
 
+    # Step 5: Show duration stats
+    cluster_profiles = filtered_df.groupby('cluster')['duration'].describe()
+    st.write("Cluster Duration Profiles")
+    st.dataframe(cluster_profiles)
+
+    # Step 6: Cluster legend
+    st.markdown("### Cluster Legend")
+    total = 0
+
+    for cluster in sorted_clusters:
+        if cluster == -1:
+            continue
+        if cluster not in clusters_count:
+            continue  # in case some clusters were filtered out
+
+        rank = cluster_ranks[cluster]
+        count = clusters_count[cluster]
+        total += count
+        min_duration = df[df['cluster'] == cluster]['duration'].min()
+        max_duration = df[df['cluster'] == cluster]['duration'].max()
+        cluster_color = f"rgb({','.join(map(str, cluster_colors[cluster][:3]))})"
+        st.markdown(
+            f"<span style='color:{cluster_color};'>⬤</span> Cluster {rank} : {min_duration} - {max_duration} ({count} cases)",
+            unsafe_allow_html=True
+        )
+
+
+    st.markdown(f"Total: {total} cases")
     
 except Exception as e:
     st.error(f"Error in clustering analysis: {e}")

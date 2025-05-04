@@ -3,3 +3,5 @@ env
 
 .DS_Store
 .venv
+
+/data-viz/bangkok_traffy.csv
