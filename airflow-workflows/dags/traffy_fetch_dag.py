@@ -1,13 +1,7 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator  # type: ignore
 from datetime import datetime, timedelta
-import sys
-import os
-
-
-# Add the data-eng/big-query folder to sys.path
-sys.path.append(os.path.abspath(os.path.join(
-    os.path.dirname(__file__), '../../data_eng/big_query')))
+from data_eng.traffy_fondue import fetch_new_traffy
 
 default_args = {
     'owner': 'airflow',
@@ -17,7 +11,6 @@ default_args = {
 
 
 def fetch_traffy_data():
-    import fetch_new_traffy
     fetch_new_traffy.run()
 
 
