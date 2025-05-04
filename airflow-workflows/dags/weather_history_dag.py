@@ -6,7 +6,7 @@ import os
 
 # Add the weather-history folder to sys.path
 sys.path.append(os.path.abspath(os.path.join(
-    os.path.dirname(__file__), '../../data-eng/weather-history')))
+    os.path.dirname(__file__), '../../data_eng/weather_history')))
 
 default_args = {
     'owner': 'airflow',

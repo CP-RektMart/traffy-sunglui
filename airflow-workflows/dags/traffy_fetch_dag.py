@@ -7,7 +7,7 @@ import os
 
 # Add the data-eng/big-query folder to sys.path
 sys.path.append(os.path.abspath(os.path.join(
-    os.path.dirname(__file__), '../../data-eng/big-query')))
+    os.path.dirname(__file__), '../../data_eng/big_query')))
 
 default_args = {
     'owner': 'airflow',
