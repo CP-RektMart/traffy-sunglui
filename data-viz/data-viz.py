@@ -107,20 +107,35 @@ try:
         zoom=12,
         pitch=0,
     )
+    
+    # Step 1: Sort clusters by min duration
+    cluster_durations = df.groupby('cluster')['duration'].min().sort_values()
+    sorted_clusters = cluster_durations.index.tolist()
 
+    # Step 2: Add multiselect box to choose clusters to display
+    selected_clusters = []
+    st.markdown("### Select Clusters to Display")
+
+    for cluster in sorted_clusters:
+        if cluster == -1:
+            continue  # skip noise cluster
+        checkbox_label = f"Cluster {cluster}"
+        if st.checkbox(checkbox_label, value=True, key=f"cluster_{cluster}"):
+            selected_clusters.append(cluster)
+
+    # Step 3: Filter data for selected clusters
+    filtered_df = df[df['cluster'].isin(selected_clusters)]
+    filtered_viz_data = viz_data[viz_data['cluster'].isin(selected_clusters)]
+
+    # Step 4: Display map
     st.pydeck_chart(
         pdk.Deck(
             map_style=MAP_STYLES[map_style],
-            initial_view_state=pdk.ViewState(
-                latitude=df['latitude'].mean(),
-                longitude=df['longitude'].mean(),
-                zoom=12,
-                pitch=0,
-            ),
+            initial_view_state=view_state,
             layers=[
                 pdk.Layer(
                     'ScatterplotLayer',
-                    data=viz_data,
+                    data=filtered_viz_data,
                     get_position='[longitude, latitude]',
                     get_fill_color='color',
                     get_radius=10,
@@ -135,23 +150,28 @@ try:
             }
         )
     )
-    
-    # Analyze duration statistics per cluster
-    cluster_profiles = df.groupby('cluster')['duration'].describe()
+
+    # Step 5: Show duration stats
+    cluster_profiles = filtered_df.groupby('cluster')['duration'].describe()
     st.write("Cluster Duration Profiles")
     st.dataframe(cluster_profiles)
 
-    total = 0
+    # Step 6: Cluster legend
     st.markdown("### Cluster Legend")
-    
-    for cluster, count in clusters_count.items():
+    total = 0
+
+    for cluster in sorted_clusters:
         if cluster == -1:
             continue
+        count = clusters_count[cluster]
         total += count
         min_duration = df[df['cluster'] == cluster]['duration'].min()
         max_duration = df[df['cluster'] == cluster]['duration'].max()
         cluster_color = f"rgb({','.join(map(str, cluster_colors[cluster][:3]))})"
-        st.markdown(f"<span style='color:{cluster_color};'>⬤</span> Cluster {cluster} : {min_duration} - {max_duration} ({count} cases)", unsafe_allow_html=True)
+        st.markdown(
+            f"<span style='color:{cluster_color};'>⬤</span> Cluster {cluster} : {min_duration} - {max_duration} ({count} cases)",
+            unsafe_allow_html=True
+        )
 
     st.markdown(f"Total: {total} cases")
     
