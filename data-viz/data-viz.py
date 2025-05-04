@@ -109,8 +109,15 @@ try:
     )
     
     # Step 1: Sort clusters by min duration
-    cluster_durations = df.groupby('cluster')['duration'].min().sort_values()
-    sorted_clusters = cluster_durations.index.tolist()
+    # Compute min duration per cluster
+    min_durations = df.groupby('cluster')['duration'].min()
+
+    # Sort clusters by min duration
+    sorted_clusters = min_durations.sort_values().index.tolist()
+
+    # Create a mapping from cluster number to rank (starting from 1)
+    cluster_ranks = {cluster: rank+1 for rank, cluster in enumerate(sorted_clusters)}
+
 
     # Step 2: Add multiselect box to choose clusters to display
     selected_clusters = []
@@ -118,13 +125,18 @@ try:
 
     for cluster in sorted_clusters:
         if cluster == -1:
-            continue  # skip noise cluster
-        checkbox_label = f"Cluster {cluster}"
+            continue  # skip noise
+        rank = cluster_ranks[cluster]
+        checkbox_label = f"Cluster {rank}"
         if st.checkbox(checkbox_label, value=True, key=f"cluster_{cluster}"):
             selected_clusters.append(cluster)
 
     # Step 3: Filter data for selected clusters
     filtered_df = df[df['cluster'].isin(selected_clusters)]
+    filtered_viz_data = viz_data[viz_data['cluster'].isin(selected_clusters)]
+    
+    viz_data['cluster_rank'] = viz_data['cluster'].map(cluster_ranks)
+    
     filtered_viz_data = viz_data[viz_data['cluster'].isin(selected_clusters)]
 
     # Step 4: Display map
@@ -145,7 +157,7 @@ try:
                 ),
             ],
             tooltip={
-                'html': '<b>Cluster:</b> {cluster}<br><b>ticket_id :</b> {ticket_id}',
+                'html': '<b>Cluster:</b> {cluster_rank}<br><b>ticket_id :</b> {ticket_id}',
                 'style': {'color': 'white', 'backgroundColor': 'black'}
             }
         )
@@ -163,15 +175,20 @@ try:
     for cluster in sorted_clusters:
         if cluster == -1:
             continue
+        if cluster not in clusters_count:
+            continue  # in case some clusters were filtered out
+
+        rank = cluster_ranks[cluster]
         count = clusters_count[cluster]
         total += count
         min_duration = df[df['cluster'] == cluster]['duration'].min()
         max_duration = df[df['cluster'] == cluster]['duration'].max()
         cluster_color = f"rgb({','.join(map(str, cluster_colors[cluster][:3]))})"
         st.markdown(
-            f"<span style='color:{cluster_color};'>⬤</span> Cluster {cluster} : {min_duration} - {max_duration} ({count} cases)",
+            f"<span style='color:{cluster_color};'>⬤</span> Cluster {rank} : {min_duration} - {max_duration} ({count} cases)",
             unsafe_allow_html=True
         )
+
 
     st.markdown(f"Total: {total} cases")
     
