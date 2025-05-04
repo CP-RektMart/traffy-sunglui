@@ -3,7 +3,7 @@ from google.cloud import bigquery
 import time
 import pandas as pd
 from queryclient import client, check_existing_ticket_ids, table_ref, dataset_id, table_id, schema, get_last_existing_timestamp
-from utils import convert_to_utc
+from utils import convert_to_utc  # Ensure this converts to UTC timestamp
 
 # URL of the API endpoint
 url = "https://publicapi.traffy.in.th/teamchadchart-stat-api/geojson/v1?limit=1000&offset={offset}"
@@ -29,6 +29,10 @@ if last_existing_timestamp is None:
     print("No data found in BigQuery. Fetching all data from the API.")
 else:
     print(f"Last existing timestamp in BigQuery: {last_existing_timestamp}")
+
+# Convert last_existing_timestamp to UTC for comparison
+last_existing_timestamp = convert_to_utc(
+    last_existing_timestamp) if last_existing_timestamp else None
 
 while has_new_data:
     # Send GET request to the API
@@ -91,8 +95,12 @@ while has_new_data:
             # Get the latest timestamp from the new data
             latest_new_data_timestamp = max(new_data_timestamps)
 
+            # Convert latest_new_data_timestamp to UTC
+            latest_new_data_timestamp = convert_to_utc(
+                latest_new_data_timestamp) if latest_new_data_timestamp else None
+
             # Check if the latest new timestamp is older than or equal to the last existing timestamp
-            if latest_new_data_timestamp <= last_existing_timestamp:
+            if latest_new_data_timestamp and last_existing_timestamp and latest_new_data_timestamp <= last_existing_timestamp:
                 print("Detected overlap. Stopping fetch.")
                 break
 
