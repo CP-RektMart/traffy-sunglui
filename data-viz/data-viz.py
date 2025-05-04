@@ -117,7 +117,6 @@ try:
         )
     )
     
-    st.subheader('Clustering Analysis')
 
     
 except Exception as e:
