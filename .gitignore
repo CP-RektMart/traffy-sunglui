@@ -5,3 +5,5 @@ env
 .venv
 
 /data-viz/bangkok_traffy.csv
+airflow310
+.vscode/*
