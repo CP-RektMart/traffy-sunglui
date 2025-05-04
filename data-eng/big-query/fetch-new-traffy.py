@@ -2,7 +2,8 @@ import requests
 from google.cloud import bigquery
 import time
 import pandas as pd
-from queryclient import client, check_existing_ticket_ids, table_ref, dataset_id, table_id, schema
+from queryclient import client, check_existing_ticket_ids, table_ref, dataset_id, table_id, schema, get_last_existing_timestamp
+from utils import convert_to_utc
 
 # URL of the API endpoint
 url = "https://publicapi.traffy.in.th/teamchadchart-stat-api/geojson/v1?limit=1000&offset={offset}"
@@ -20,6 +21,14 @@ job_config = bigquery.LoadJobConfig(
     autodetect=True,
     schema=schema,
 )
+
+# Get the last timestamp from BigQuery
+last_existing_timestamp = get_last_existing_timestamp()
+
+if last_existing_timestamp is None:
+    print("No data found in BigQuery. Fetching all data from the API.")
+else:
+    print(f"Last existing timestamp in BigQuery: {last_existing_timestamp}")
 
 while has_new_data:
     # Send GET request to the API
@@ -40,6 +49,8 @@ while has_new_data:
 
         # Filter out existing data and prepare the rows for BigQuery
         new_rows = []
+        new_data_timestamps = []
+
         for feature in data["features"]:
             ticket_id = feature["properties"]["ticket_id"]
             if ticket_id not in existing_ticket_ids:
@@ -58,13 +69,14 @@ while has_new_data:
                     "subdistrict": properties["subdistrict"],
                     "district": properties["district"],
                     "province": properties["province"],
-                    "timestamp": properties["timestamp"],
+                    "timestamp": convert_to_utc(properties["timestamp"]) if properties["timestamp"] else None,
                     "state": properties["state"],
                     "star": properties["star"] if properties["star"] is not None else None,
                     "count_reopen": properties["count_reopen"],
-                    "last_activity": properties["last_activity"]
+                    "last_activity": convert_to_utc(properties["last_activity"]) if properties["last_activity"] else None
                 }
                 new_rows.append(row)
+                new_data_timestamps.append(properties["timestamp"])
 
         if new_rows:
             # Convert new rows to DataFrame
@@ -76,10 +88,16 @@ while has_new_data:
             job.result()  # Wait for the job to finish
             print(f"Inserted {len(new_df)} rows.")
 
-            # Check if we have any new data for the next iteration
-            has_new_data = len(new_rows) == 1000
-            if has_new_data:
-                offset += 1000
+            # Get the latest timestamp from the new data
+            latest_new_data_timestamp = max(new_data_timestamps)
+
+            # Check if the latest new timestamp is older than or equal to the last existing timestamp
+            if latest_new_data_timestamp <= last_existing_timestamp:
+                print("Detected overlap. Stopping fetch.")
+                break
+
+            # Update the offset for the next batch of data
+            offset += 1000
         else:
             # No new data, stop fetching
             has_new_data = False

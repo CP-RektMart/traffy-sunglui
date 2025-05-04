@@ -51,3 +51,14 @@ def check_existing_ticket_ids(dataset_id, table_id, ticket_ids):
     result = query_job.result()
     existing_ticket_ids = {row["ticket_id"] for row in result}
     return existing_ticket_ids
+
+
+def get_last_existing_timestamp():
+    query = f"""
+    SELECT MAX(timestamp) AS last_timestamp
+    FROM `{dataset_id}.{table_id}`;
+    """
+    result = client.query(query).result()
+    for row in result:
+        return row["last_timestamp"]
+    return None
