@@ -36,6 +36,9 @@ df = df.dropna(subset=['coords'])
 # use only 10000 rows for testing
 df = df.sample(n=10000, random_state=42)
 
+#filter out rows which timestamp >= last_activity
+df = df[df['timestamp'] <= df['last_activity']]
+
 map_style = st.sidebar.selectbox(
     'Select Base Map Style',
     options=['Dark', 'Light', 'Road', 'Satellite'],
@@ -45,6 +48,17 @@ map_style = st.sidebar.selectbox(
 df['latitude'] = df['coords'].apply(lambda x: float(x.split(',')[1]))
 df['longitude'] = df['coords'].apply(lambda x: float(x.split(',')[0]))
 
+
+def toDate(serie):
+    return pd.to_datetime(serie, format='ISO8601').dt.tz_localize(None)
+
+df['timestamp'] = toDate(df['timestamp'])
+df['last_activity'] = toDate(df['last_activity'])
+
+df['duration'] = (df['last_activity'] - df['timestamp']).dt.total_seconds() // 60
+
+
+st.write(df)
 
 try:
     coords = df[['latitude', 'longitude']]
