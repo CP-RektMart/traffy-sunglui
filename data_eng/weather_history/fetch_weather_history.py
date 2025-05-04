@@ -2,7 +2,7 @@ import openmeteo_requests
 from datetime import datetime
 import pandas as pd
 from google.cloud import bigquery
-from queryclient import client, project_id, dataset_id, table_id, table_ref, schema
+from data_eng.weather_history.queryclient import client, project_id, dataset_id, table_id, table_ref, schema
 
 
 def run():
