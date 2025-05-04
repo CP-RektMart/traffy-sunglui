@@ -31,13 +31,27 @@ MAP_STYLES = {
 df = load_data('bangkok_traffy.csv')
 
 # drop NaN coords
-df = df.dropna(subset=['coords'])
+df = df.dropna(subset=['coords', 'timestamp', 'last_activity', 'state'])
+
+#filter out rows which timestamp >= last_activity
+df = df[df['timestamp'] < df['last_activity']]
+
+# drop rows with state is not 'เสร็จสิ้น'
+df = df[df['state'] == 'เสร็จสิ้น']
+
+def toDate(serie):
+    return pd.to_datetime(serie, format='ISO8601').dt.tz_localize(None)
+
+df['timestamp'] = toDate(df['timestamp'])
+df['last_activity'] = toDate(df['last_activity'])
+
+df['duration'] = (df['last_activity'] - df['timestamp']).dt.total_seconds() // 60
+
+# remove those with duration > 20k
+df = df[df['duration'] <= 20000]
 
 # use only 10000 rows for testing
 df = df.sample(n=10000, random_state=42)
-
-#filter out rows which timestamp >= last_activity
-df = df[df['timestamp'] <= df['last_activity']]
 
 map_style = st.sidebar.selectbox(
     'Select Base Map Style',
@@ -49,23 +63,28 @@ df['latitude'] = df['coords'].apply(lambda x: float(x.split(',')[1]))
 df['longitude'] = df['coords'].apply(lambda x: float(x.split(',')[0]))
 
 
-def toDate(serie):
-    return pd.to_datetime(serie, format='ISO8601').dt.tz_localize(None)
-
-df['timestamp'] = toDate(df['timestamp'])
-df['last_activity'] = toDate(df['last_activity'])
-
-df['duration'] = (df['last_activity'] - df['timestamp']).dt.total_seconds() // 60
-
-
 st.write(df)
 
+#plot duration histogram
+st.subheader("Duration Histogram")
+fig = px.histogram(df, x='duration', nbins=100, title='Duration Histogram')
+fig.update_layout(
+    xaxis_title='Duration (minutes)',
+    yaxis_title='Count',
+    xaxis=dict(
+        tickmode='linear',
+        dtick=1000
+    )
+)
+st.plotly_chart(fig, use_container_width=True)
+
 try:
-    coords = df[['latitude', 'longitude']]
-    db = DBSCAN(eps=0.001, min_samples=3).fit(coords)
+    duration = df[['duration']]
+    kmeans = KMeans(n_clusters=5, random_state=77, n_init='auto')
+    kmeans.fit(duration)
     
     # Add cluster labels to dataframe
-    df['cluster'] = db.labels_
+    df['cluster'] = kmeans.labels_
     
     # Analyze clusters
     clusters_count = df['cluster'].value_counts()
@@ -104,20 +123,37 @@ try:
                     data=viz_data,
                     get_position='[longitude, latitude]',
                     get_fill_color='color',
-                    get_radius=3,
+                    get_radius=10,
                     radius_scale=10,
                     pickable=True,
                     opacity=1,
                 ),
             ],
             tooltip={
-                'html': '<b>Cluster:</b> {cluster}<br><b>Price:</b> {price}',
+                'html': '<b>Cluster:</b> {cluster}<br><b>ticket_id :</b> {ticket_id}',
                 'style': {'color': 'white', 'backgroundColor': 'black'}
             }
         )
     )
     
+    # Analyze duration statistics per cluster
+    cluster_profiles = df.groupby('cluster')['duration'].describe()
+    st.write("Cluster Duration Profiles")
+    st.dataframe(cluster_profiles)
 
+    total = 0
+    st.markdown("### Cluster Legend")
+    
+    for cluster, count in clusters_count.items():
+        if cluster == -1:
+            continue
+        total += count
+        min_duration = df[df['cluster'] == cluster]['duration'].min()
+        max_duration = df[df['cluster'] == cluster]['duration'].max()
+        cluster_color = f"rgb({','.join(map(str, cluster_colors[cluster][:3]))})"
+        st.markdown(f"<span style='color:{cluster_color};'>⬤</span> Cluster {cluster} : {min_duration} - {max_duration} ({count} cases)", unsafe_allow_html=True)
+
+    st.markdown(f"Total: {total} cases")
     
 except Exception as e:
     st.error(f"Error in clustering analysis: {e}")
