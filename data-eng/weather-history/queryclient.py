@@ -13,3 +13,11 @@ table_ref = f"{project_id}.{dataset_id}.{table_id}"
 
 # Create BigQuery client using service account
 client = bigquery.Client(credentials=credentials, project=project_id)
+
+schema = [
+    bigquery.SchemaField("date", "DATE", mode="REQUIRED"),
+    bigquery.SchemaField("rain_sum", "FLOAT", mode="NULLABLE"),
+    bigquery.SchemaField("precipitation_hours", "FLOAT", mode="NULLABLE"),
+    bigquery.SchemaField("precipitation_sum", "FLOAT", mode="NULLABLE"),
+    bigquery.SchemaField("is_rain", "BOOLEAN"),
+]
