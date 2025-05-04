@@ -4,7 +4,7 @@ This module is to fetch a newer data from traffy-fondue by compare last timestam
 
 Getting Started
 
-1. place file `credentials.json` (Google IAM Account) at `./data-eng/big-query` and rename file in `queryclient.py`
+1. place file `credentials.json` (Google IAM Account) at `./data-eng` and rename file in `queryclient.py`
 2. run it
 
 Files:

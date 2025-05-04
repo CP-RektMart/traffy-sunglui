@@ -3,7 +3,7 @@ from google.oauth2 import service_account
 
 # Load credentials from service account JSON
 credentials = service_account.Credentials.from_service_account_file(
-    "./data-eng/big-query/dsde-458712-ec9f91c0cc0c.json")
+    "./data-eng/dsde-458712-ec9f91c0cc0c.json")
 
 # Set your GCP project ID
 project_id = "dsde-458712"
