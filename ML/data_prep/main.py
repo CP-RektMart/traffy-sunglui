@@ -2,18 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, time, timedelta
 import requests
-import logging
-from functools import wraps
-
-logging.basicConfig(level=logging.INFO)
-
-def log_decorator(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        logging.info(f"Calling {func.__name__}")
-        result = func(*args, **kwargs)
-        return result
-    return wrapper
+from ML.utils.logger import log_decorator
 
 @log_decorator
 def load_df(path):
