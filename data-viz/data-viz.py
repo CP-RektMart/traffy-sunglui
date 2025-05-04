@@ -9,6 +9,9 @@ import plotly.graph_objects as go
 import pydeck as pdk
 from sklearn.cluster import DBSCAN
 import matplotlib.pyplot as plt
+import ast
+from itertools import chain
+import colorsys
 
 
 # Page configuration
@@ -31,7 +34,10 @@ MAP_STYLES = {
 df = load_data('bangkok_traffy.csv')
 
 # drop NaN coords
-df = df.dropna(subset=['coords', 'timestamp', 'last_activity', 'state'])
+df = df.dropna(subset=['coords', 'timestamp', 'last_activity', 'state','type'])
+
+# drop rows with type = {}
+df = df[df['type'] != '{}']
 
 #filter out rows which timestamp >= last_activity
 df = df[df['timestamp'] < df['last_activity']]
@@ -64,6 +70,7 @@ df['longitude'] = df['coords'].apply(lambda x: float(x.split(',')[0]))
 
 
 st.write(df)
+st.write(df.dtypes)
 
 #plot duration histogram
 st.subheader("Duration Histogram")
@@ -107,6 +114,8 @@ try:
         zoom=12,
         pitch=0,
     )
+    
+    st.header("Distribution by time duration used")
     
     # Step 1: Sort clusters by min duration
     # Compute min duration per cluster
@@ -185,12 +194,114 @@ try:
         max_duration = df[df['cluster'] == cluster]['duration'].max()
         cluster_color = f"rgb({','.join(map(str, cluster_colors[cluster][:3]))})"
         st.markdown(
-            f"<span style='color:{cluster_color};'>⬤</span> Cluster {rank} : {min_duration} - {max_duration} ({count} cases)",
+            f"<span style='color:{cluster_color};'>⬤</span> Cluster {rank} : {min_duration} - {max_duration} hr ({count} cases)",
             unsafe_allow_html=True
         )
 
 
-    st.markdown(f"Total: {total} cases")
+    st.markdown(f"Total : {total} cases")
     
 except Exception as e:
     st.error(f"Error in clustering analysis: {e}")
+    
+# --------------------------------------------------------------------------    
+
+# plot another map, now classifying by type
+
+# convert type to list
+df['parsed_types'] = df['type'].apply(
+    lambda x: set(item.strip() for item in x.strip('{}').split(',') if item.strip())
+)
+
+# see all unique types
+all_types = sorted(set(chain.from_iterable(df['parsed_types'])))
+df['primary_type'] = df['parsed_types'].apply(lambda x: sorted(list(x))[0])
+def generate_hsv_colors(n):
+    return [
+        [int(c * 255) for c in colorsys.hsv_to_rgb(i / n, 0.65, 0.95)] + [160]
+        for i in range(n)
+    ]
+
+type_colors = {
+    t: color for t, color in zip(all_types, generate_hsv_colors(len(all_types)))
+}
+
+df['color'] = df['primary_type'].map(type_colors)
+
+viz_data = df[['latitude', 'longitude', 'color', 'ticket_id', 'primary_type']]
+
+
+try:
+    
+    st.header("Distribution by type of case")
+    
+    # create a checkbox for each type
+    st.markdown("### Select Types to Display")
+    cols = st.columns(4)  # Create 4 columns
+    selected_types = []
+
+    for i, t in enumerate(all_types):
+        col = cols[i % 4]  # Distribute checkboxes evenly across columns
+        checkbox_label = f"Type: {t}"
+        if col.checkbox(checkbox_label, value=True, key=f"type_{t}"):
+            selected_types.append(t)
+            
+            
+    # filter data for selected types
+    filtered_viz_data = viz_data[viz_data['primary_type'].isin(selected_types)]
+    filtered_viz_data['color'] = filtered_viz_data['color'].apply(
+        lambda x: [int(c) for c in x]
+    )
+    
+    st.pydeck_chart(pdk.Deck(
+        map_style=MAP_STYLES[map_style],
+        initial_view_state=view_state,
+        layers=[
+            pdk.Layer(
+                "ScatterplotLayer",
+                data=filtered_viz_data,
+                get_position='[longitude, latitude]',
+                get_fill_color='color',
+                get_radius=100,
+                pickable=True,
+            )
+        ],
+        tooltip={
+            'html': '<b>Type:</b> {primary_type}<br><b>ID:</b> {ticket_id}',
+            'style': {'color': 'white'}
+        }
+    ))
+    
+    # Show type counts
+    total_count = 0
+    st.markdown("### Type Counts")
+    
+    st.markdown(f"Number of categories : {len(all_types)} categories")
+
+    cols = st.columns(4)  # Create 4 columns
+    total_count = 0
+    no_of_rows = len(all_types) // 4 + (len(all_types) % 4 > 0)
+
+    for i, t in enumerate(all_types):
+        if t not in type_colors:
+            continue  # Skip filtered-out types
+
+        count = df[df['primary_type'] == t].shape[0]
+        total_count += count
+        type_color = f"rgb({','.join(map(str, type_colors[t][:3]))})"
+        
+        # Display in the appropriate column
+        cols[i // no_of_rows].markdown(
+            f"<span style='color:{type_color};'>⬤</span> {t}: {count} cases",
+            unsafe_allow_html=True
+        )
+
+    st.markdown(f"Total : {total_count} cases")
+    
+except Exception as e:
+    st.error(f"Error in type visualization: {e}")
+
+
+
+
+
