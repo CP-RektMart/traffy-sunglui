@@ -15,12 +15,14 @@ x-airflow-common: &airflow-common
     AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
     PYTHONPATH: /opt/traffy-sunglui
+    GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/service-accounts/dsde-458712-ec9f91c0cc0c.json
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ../:/opt/traffy-sunglui
+    - ./service-accounts:/opt/airflow/service-accounts
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     redis:
