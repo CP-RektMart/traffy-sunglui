@@ -3,7 +3,7 @@ from google.cloud import bigquery
 import time
 import pandas as pd
 from data_eng.traffy_fondue.queryclient import client, check_existing_ticket_ids, table_ref, dataset_id, table_id, schema, get_last_existing_timestamp
-from utils import convert_to_utc  # Ensure this converts to UTC timestamp
+from data_eng.traffy_fondue.utils import convert_to_utc
 
 
 def run():
