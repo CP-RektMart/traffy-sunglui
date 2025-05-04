@@ -1,5 +1,5 @@
 from airflow import DAG
-from airflow.operators import PythonOperator
+from airflow.operators.python import PythonOperator  # type: ignore
 from datetime import datetime, timedelta
 import sys
 import os
