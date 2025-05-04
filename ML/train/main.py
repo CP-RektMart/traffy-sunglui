@@ -63,11 +63,11 @@ def calculate_loss(y_true_all, y_pred_all):
     print(f"R²: {r2:.2f}")
 
 def main():
-    cfg = Config()
-    df = load_data(cfg.load_path)
+    conf = Config()
+    df = load_data(conf.load_path)
     df = prep_data(df)
-    model, scaler = load_model(cfg)
-    train_model(model, scaler, df, cfg)
+    model, scaler = load_model(conf)
+    train_model(model, scaler, df, conf)
 
 if __name__ == '__main__':
     main()

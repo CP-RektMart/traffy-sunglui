@@ -3,6 +3,7 @@ import numpy as np
 from datetime import datetime, time, timedelta
 import requests
 from ML.utils.logger import log_decorator
+from ML.data_prep.config import Config
 
 @log_decorator
 def load_df(path):
@@ -220,26 +221,26 @@ def impute(df):
 def save(df, path):
     df.to_csv(path, index=False)
 
-load_path = "../data/bangkok_traffy.csv"
-org_path = '../data/org.csv'
-org_url = f'https://publicapi.traffy.in.th/premium-org-fondue/statistic-rank/top-rank-avg-star?org_key=bangkok&limit=100'
-save_path = '../data/clean2.csv'
-
-pipeline = [
-    handleNull,
-    calculate_duration,
-    encode_types,
-    calculate_target,
-    orgs_wrapper(org_path, org_url),
-    normalize,
-    select_cols,
-    impute
-]
-
-if __name__ == "__main__":
-    df = load_df(load_path)
+def main():
+    conf = Config()
+    
+    pipeline = [
+        handleNull,
+        calculate_duration,
+        encode_types,
+        calculate_target,
+        orgs_wrapper(conf.org_path, conf.org_url),
+        normalize,
+        select_cols,
+        impute
+    ]
+    
+    df = load_df(conf.load_path)
 
     for step in pipeline:
         df = step(df)
 
-    save(df, save_path)
+    save(df, conf.save_path)
+
+if __name__ == "__main__":
+    main()
