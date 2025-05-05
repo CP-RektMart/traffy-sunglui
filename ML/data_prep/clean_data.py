@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, time, timedelta
-import requests
 from ML.utils.logger import log_decorator
 from ML.data_prep.config import Config
 from ML.data_prep.client import client
