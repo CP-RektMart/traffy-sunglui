@@ -6,6 +6,7 @@ from ML.utils.logger import log_decorator
 from ML.data_prep.config import Config
 from ML.data_prep.client import client
 from ML.data_prep.clean_table import insert_clean
+from ML.data_prep.orgs_table import get_orgs, update_orgs
 
 @log_decorator
 def load_df():
@@ -14,6 +15,7 @@ def load_df():
         FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data`
         WHERE PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', timestamp) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 HOUR)
         ORDER BY PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', timestamp) DESC
+        LIMIT 10
     """
 
     return client.query(query).to_dataframe()
@@ -90,7 +92,7 @@ def encode_types(df):
     return df
 
 @log_decorator
-def calculate_target(df):
+def calculate_target(df: pd.DataFrame):
     start_time = time(9, 30)
     end_time = time(15, 30)
 
@@ -112,19 +114,14 @@ def calculate_target(df):
         else:
             return 0
 
-    df['until_working_time'] = df['timestamp'].apply(minutes_to_next_working_hour)
+    df['until_working_time'] = df['timestamp'].apply(minutes_to_next_working_hour).astype(int)
     
     return df
 
 def orgs_wrapper(path, url):
     @log_decorator
     def orgs(df):
-        resp = requests.get(url)
-        data = resp.json()
-        orgs = data['results']
-        pd.DataFrame(orgs).to_csv(path, index=False)
-
-        orgs = pd.read_csv(path)
+        orgs = get_orgs()
         orgs.set_index('fonduegroup_name', inplace=True)
         
         # Define target columns
