@@ -4,10 +4,19 @@ from datetime import datetime, time, timedelta
 import requests
 from ML.utils.logger import log_decorator
 from ML.data_prep.config import Config
+from ML.data_prep.client import client
+from ML.data_prep.clean_table import insert_clean
 
 @log_decorator
-def load_df(path):
-    return pd.read_csv(path)
+def load_df():
+    query = """
+        SELECT *
+        FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data`
+        WHERE PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', timestamp) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 HOUR)
+        ORDER BY PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', timestamp) DESC
+    """
+
+    return client.query(query).to_dataframe()
 
 @log_decorator
 def calculate_duration(df):
@@ -75,7 +84,8 @@ def encode_types(df):
         lambda lst: int(any(c not in target_types for c in lst))
     )
 
-    df.drop(columns='type_list', inplace=True)
+    df['PM'] = df['PM2.5']
+    df.drop(columns=['type_list', 'PM2.5'], inplace=True)
     
     return df
 
@@ -183,7 +193,7 @@ def select_cols(df):
         'เสนอแนะ',
         'กีดขวาง',
         'สายไฟ',
-        'PM2.5',
+        'PM',
         'น้ำท่วม',
         'ทางเท้า',
         'สัตว์จรจัด',
@@ -218,8 +228,8 @@ def impute(df):
     return df
 
 @log_decorator
-def save(df, path):
-    df.to_csv(path, index=False)
+def save(df):
+    insert_clean(df)
 
 def main():
     conf = Config()
@@ -235,12 +245,12 @@ def main():
         impute
     ]
     
-    df = load_df(conf.load_path)
+    df = load_df()
 
     for step in pipeline:
         df = step(df)
 
-    save(df, conf.save_path)
+    save(df)
 
 if __name__ == "__main__":
     main()

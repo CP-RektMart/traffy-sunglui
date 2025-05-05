@@ -1,6 +1,9 @@
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Load credentials from service account JSON
 creds_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
