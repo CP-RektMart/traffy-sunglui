@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import ast
 from itertools import chain
 import colorsys
-from google.cloud import storage
+from google.cloud import bigquery
 import os
 
 
@@ -37,39 +37,65 @@ MAP_STYLES = {
 
 #set up google cloud storage
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "dsde-458712-2c709a260944.json"
-client = storage.Client()
-bucket = client.bucket("bkk_traffy_fondue")
-blob = bucket.blob("bangkok_traffy.csv")
-blob.download_to_filename("bangkok_traffy.csv")
+client = bigquery.Client()
+# coords,timestamp,last_activity,state,type must not be null
+# type must not be empty
+# timestamp must be less than last_activity
+# state must be 'เสร็จสิ้น'
+# duration must be less than 20k minutes
+query = """
+    SELECT *
+    FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data`
+    Where coords IS NOT NULL
+    AND timestamp IS NOT NULL
+    AND last_activity IS NOT NULL
+    AND state IS NOT NULL
+    AND type IS NOT NULL
+    AND coords != ''
+    AND timestamp != ''
+    AND last_activity != ''
+    AND state != ''
+    AND type != ''
+    AND timestamp < last_activity
+    AND state = 'เสร็จสิ้น'
+    AND type != '{}'
+    AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) < 20000
+    AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) > 0
+    LIMIT 1000
+"""
 
-df = pd.read_csv("bangkok_traffy.csv")
+# Run the query and convert to pandas DataFrame
+df = client.query(query).to_dataframe()
 
 
 # drop NaN coords
-df = df.dropna(subset=['coords', 'timestamp', 'last_activity', 'state','type'])
+# df = df.dropna(subset=['coords', 'timestamp', 'last_activity', 'state','type'])
 
-# drop rows with type = {}
-df = df[df['type'] != '{}']
+# # drop rows with type = {}
+# df = df[df['type'] != '{}']
 
-#filter out rows which timestamp >= last_activity
-df = df[df['timestamp'] < df['last_activity']]
+# #filter out rows which timestamp >= last_activity
+# df = df[df['timestamp'] < df['last_activity']]
 
-# drop rows with state is not 'เสร็จสิ้น'
-df = df[df['state'] == 'เสร็จสิ้น']
+# # drop rows with state is not 'เสร็จสิ้น'
+# df = df[df['state'] == 'เสร็จสิ้น']
 
-def toDate(serie):
-    return pd.to_datetime(serie, format='ISO8601').dt.tz_localize(None)
+# def toDate(serie):
+#     return pd.to_datetime(serie, format='ISO8601').dt.tz_localize(None)
 
-df['timestamp'] = toDate(df['timestamp'])
-df['last_activity'] = toDate(df['last_activity'])
+# df['timestamp'] = toDate(df['timestamp'])
+# df['last_activity'] = toDate(df['last_activity'])
 
-df['duration'] = (df['last_activity'] - df['timestamp']).dt.total_seconds() // 60
+# df['duration'] = (df['last_activity'] - df['timestamp']).dt.total_seconds() // 60
 
-# remove those with duration > 20k
-df = df[df['duration'] <= 20000]
+# # remove those with duration > 20k
+# df = df[df['duration'] <= 20000]
 
 # use only 10000 rows for testing
-df = df.sample(n=10000, random_state=42)
+# df = df.sample(n=10000, random_state=42)
+
+# create a new column for duration
+df['duration'] = (pd.to_datetime(df['last_activity']) - pd.to_datetime(df['timestamp'])).dt.total_seconds() // 60
 
 map_style = st.sidebar.selectbox(
     'Select Base Map Style',
@@ -97,6 +123,13 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
+view_state = pdk.ViewState(
+        latitude=df['latitude'].mean(),
+        longitude=df['longitude'].mean(),
+        zoom=12,
+        pitch=0,
+    )
+
 try:
     duration = df[['duration']]
     kmeans = KMeans(n_clusters=5, random_state=77, n_init='auto')
@@ -119,13 +152,6 @@ try:
     # Create visualization dataframe
     viz_data = df[df['cluster'].isin(top_clusters.index)].copy()
     viz_data['color'] = viz_data['cluster'].map(cluster_colors)
-    
-    view_state = pdk.ViewState(
-        latitude=df['latitude'].mean(),
-        longitude=df['longitude'].mean(),
-        zoom=12,
-        pitch=0,
-    )
     
     st.header("Distribution by time duration used")
     
