@@ -2,6 +2,7 @@ from google.cloud import bigquery
 from ML.data_prep.client import client
 
 clean_schema = [
+    bigquery.SchemaField("created_at", "STRING", mode="REQUIRED"),
     bigquery.SchemaField("duration", "FLOAT", mode="REQUIRED"),
     bigquery.SchemaField("log_duration", "FLOAT", mode="REQUIRED"),
     bigquery.SchemaField("until_working_time", "FLOAT", mode="REQUIRED"),
