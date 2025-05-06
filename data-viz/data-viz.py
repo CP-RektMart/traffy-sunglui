@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import ast
 from itertools import chain
 import colorsys
+from google.cloud import storage
+import os
 
 
 # Page configuration
@@ -31,7 +33,17 @@ MAP_STYLES = {
     'Satellite': 'mapbox://styles/mapbox/satellite-v9'
 }
 
-df = load_data('bangkok_traffy.csv')
+# df = load_data('bangkok_traffy.csv')
+
+#set up google cloud storage
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "dsde-458712-2c709a260944.json"
+client = storage.Client()
+bucket = client.bucket("bkk_traffy_fondue")
+blob = bucket.blob("bangkok_traffy.csv")
+blob.download_to_filename("bangkok_traffy.csv")
+
+df = pd.read_csv("bangkok_traffy.csv")
+
 
 # drop NaN coords
 df = df.dropna(subset=['coords', 'timestamp', 'last_activity', 'state','type'])
