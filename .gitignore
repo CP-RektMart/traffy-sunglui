@@ -7,3 +7,60 @@ env
 /data-viz/bangkok_traffy.csv
 airflow310
 .vscode/*
+
+*.egg-info/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.pyo
+*.pyd
+*.so
+
+# Jupyter and notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Airflow logs
+logs/
+*.log
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Docker
+*.pid
+*.swp
+*.swo
+*.swm
+*.swn
+docker-compose.override.yml
+
+# Airflow DB and config artifacts
+airflow.db
+airflow.cfg
+unittests.cfg
+
+# MacOS system files
+.DS_Store
+
+# VSCode / IDEs
+.vscode/
+.idea/
+
+# Build
+build/
+dist/
+.eggs/
+*.egg
+MANIFEST
+
+# Misc
+.env
+.env.*
+*.bak
+*.tmp

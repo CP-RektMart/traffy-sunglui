@@ -1,12 +1,7 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator  # type: ignore
 from datetime import datetime, timedelta
-import sys
-import os
-
-# Add the weather-history folder to sys.path
-sys.path.append(os.path.abspath(os.path.join(
-    os.path.dirname(__file__), '../../data_eng/weather_history')))
+from data_eng.weather_history import fetch_weather_history
 
 default_args = {
     'owner': 'airflow',
@@ -16,7 +11,6 @@ default_args = {
 
 
 def fetch_weather_data():
-    import fetch_weather_history
     fetch_weather_history.run()
 
 

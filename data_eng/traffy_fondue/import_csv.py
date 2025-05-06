@@ -5,7 +5,7 @@ from queryclient import client, table_ref, schema
 job_config = bigquery.LoadJobConfig(
     write_disposition="WRITE_APPEND",
     autodetect=True,
-    schema=schema,
+    schema=scWhema,
 )
 
 chunksize = 100000

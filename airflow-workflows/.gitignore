@@ -268,3 +268,5 @@ airflow-build-dockerfile*
 *.zip
 
 _api/
+
+service-accounts/
