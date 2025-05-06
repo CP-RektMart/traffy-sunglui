@@ -14,7 +14,7 @@ from itertools import chain
 import colorsys
 from google.cloud import bigquery
 import os
-
+from dotenv import load_dotenv
 
 # Page configuration
 st.set_page_config(layout="wide")
@@ -22,9 +22,37 @@ st.title('Bangkok Traffy Data Visualization')
 
 # Load and prepare data
 @st.cache_data
-def load_data(input_filepath):
-    df = pd.read_csv(input_filepath)
-    return df
+def load_data():
+    load_dotenv(override=True)
+    client = bigquery.Client()
+    # coords,timestamp,last_activity,state,type must not be null
+    # type must not be empty
+    # timestamp must be less than last_activity
+    # state must be 'เสร็จสิ้น'
+    # duration must be less than 20k minutes
+    query = """
+        SELECT *
+        FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data`
+        Where coords IS NOT NULL
+        AND timestamp IS NOT NULL
+        AND last_activity IS NOT NULL
+        AND state IS NOT NULL
+        AND type IS NOT NULL
+        AND coords != ''
+        AND timestamp != ''
+        AND last_activity != ''
+        AND state != ''
+        AND type != ''
+        AND timestamp < last_activity
+        AND state = 'เสร็จสิ้น'
+        AND type != '{}'
+        AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) < 20000
+        AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) > 0
+        LIMIT 1000
+    """
+
+    # Run the query and convert to pandas DataFrame
+    return client.query(query).to_dataframe()
 
 MAP_STYLES = {
     'Dark': 'mapbox://styles/mapbox/dark-v10',
@@ -36,36 +64,6 @@ MAP_STYLES = {
 # df = load_data('bangkok_traffy.csv')
 
 #set up google cloud storage
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "dsde-458712-2c709a260944.json"
-client = bigquery.Client()
-# coords,timestamp,last_activity,state,type must not be null
-# type must not be empty
-# timestamp must be less than last_activity
-# state must be 'เสร็จสิ้น'
-# duration must be less than 20k minutes
-query = """
-    SELECT *
-    FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data`
-    Where coords IS NOT NULL
-    AND timestamp IS NOT NULL
-    AND last_activity IS NOT NULL
-    AND state IS NOT NULL
-    AND type IS NOT NULL
-    AND coords != ''
-    AND timestamp != ''
-    AND last_activity != ''
-    AND state != ''
-    AND type != ''
-    AND timestamp < last_activity
-    AND state = 'เสร็จสิ้น'
-    AND type != '{}'
-    AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) < 20000
-    AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) > 0
-    LIMIT 1000
-"""
-
-# Run the query and convert to pandas DataFrame
-df = client.query(query).to_dataframe()
 
 
 # drop NaN coords
@@ -94,6 +92,8 @@ df = client.query(query).to_dataframe()
 # use only 10000 rows for testing
 # df = df.sample(n=10000, random_state=42)
 
+df = load_data()
+
 # create a new column for duration
 df['duration'] = (pd.to_datetime(df['last_activity']) - pd.to_datetime(df['timestamp'])).dt.total_seconds() // 60
 
@@ -105,6 +105,11 @@ map_style = st.sidebar.selectbox(
 
 df['latitude'] = df['coords'].apply(lambda x: float(x.split(',')[1]))
 df['longitude'] = df['coords'].apply(lambda x: float(x.split(',')[0]))
+
+# if latitude is more than longitude, swap them
+latitude, longtitude = df['latitude'], df['longitude']
+df['latitude'] = np.minimum(latitude, longtitude)
+df['longitude'] = np.maximum(latitude, longtitude)
 
 
 st.write(df)
@@ -122,6 +127,8 @@ fig.update_layout(
     )
 )
 st.plotly_chart(fig, use_container_width=True)
+
+print(df[df['latitude'] == df['latitude'].max()])
 
 view_state = pdk.ViewState(
         latitude=df['latitude'].mean(),
