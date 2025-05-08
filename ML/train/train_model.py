@@ -12,8 +12,6 @@ import os
 import requests
 from ML.store.big_query import client
 
-from ML.train.client import client
-
 @log_decorator
 def load_data():
     query = """

@@ -1,7 +1,7 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator  # type: ignore
 from datetime import datetime, timedelta
-from ML.train.main import main
+from ML.train.train_model import main
 
 default_args = {
     'owner': 'airflow',
