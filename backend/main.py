@@ -13,6 +13,21 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
+model = None
+
+def load_model():
+    global model
+
+    download_from_gcs(
+        bucket_name="model_traffy_fongdue",
+        blob_name='model.pkl',
+        destination_file_name="model.pkl",
+    )
+
+    with open("model.pkl", "rb") as f:
+        model = pickle.load(f)
+
+load_model()
 
 @app.get("/health")
 def test_health():
@@ -22,27 +37,6 @@ def test_health():
 class PredictionRequest(BaseModel):
     organizations: list
     types: list
-
-
-def load_model(path):
-    download_from_gcs(
-        bucket_name="model_traffy_fongdue",
-        blob_name=path,
-        destination_file_name="model.pkl",
-    )
-
-    print("Load model DONE!")
-
-
-def save_model():
-    upload_to_gcs(
-        bucket_name="model_traffy_fongdue",
-        blob_name="model.pkl",
-        destination_file_name="model.pkl",
-    )
-
-    print("save model DONE!")
-
 
 def load_org_data():
     load_dotenv()
@@ -61,13 +55,9 @@ def load_org_data():
     return client.query(query).to_dataframe()
 
 
-@app.get("/models/predict")
+@app.post("/models/predict")
 def predict(request: PredictionRequest):
-    load_model("model.pkl")
-
-    with open("model.pkl", "rb") as f:
-        model = pickle.load(f)
-
+    print(request)
     feature_order = [
         "until_working_time",
         "avg_star",
@@ -98,6 +88,7 @@ def predict(request: PredictionRequest):
         "ห้องน้ำ",
         "ป้ายจราจร",
         "Others",
+        "is_rain",
     ]
 
     feature_values = {key: 0 for key in feature_order}
@@ -117,6 +108,8 @@ def predict(request: PredictionRequest):
         "avg_duration_minutes_finished"
     ].mean()
 
+    feature_values['is_rain'] = False
+
     for t in request.types:
         if t in feature_values:
             feature_values[t] = 1
@@ -134,6 +127,6 @@ class UpdateRequest(BaseModel):
 
 
 @app.put("/models/update")
-def update(request: UpdateRequest):
-    load_model(request.path)
+def update():
+    load_model()
     return {"success": "OK"}
