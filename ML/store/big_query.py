@@ -7,7 +7,6 @@ load_dotenv()
 
 # Load credentials from service account JSON
 creds_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
-print(creds_path)
 credentials = service_account.Credentials.from_service_account_file(creds_path)
 
 

@@ -1,9 +1,12 @@
 from google.cloud import bigquery
-from ML.data_prep.client import client
+from ML.store.big_query import client
+from datetime import datetime
 
 clean_schema = [
     bigquery.SchemaField("created_at", "STRING", mode="REQUIRED"),
     bigquery.SchemaField("duration", "FLOAT", mode="REQUIRED"),
+    bigquery.SchemaField("is_rain", "BOOLEAN", mode="REQUIRED"),
+    bigquery.SchemaField("created_at", "DATE", mode="REQUIRED"),
     bigquery.SchemaField("log_duration", "FLOAT", mode="REQUIRED"),
     bigquery.SchemaField("until_working_time", "FLOAT", mode="REQUIRED"),
     bigquery.SchemaField("avg_star", "FLOAT", mode="REQUIRED"),
@@ -50,6 +53,7 @@ job_config = bigquery.LoadJobConfig(
 )
 
 def insert_clean(df):
+    df['created_at'] = datetime.now()
     job = client.load_table_from_dataframe(
         df, table_ref, job_config=job_config
     )

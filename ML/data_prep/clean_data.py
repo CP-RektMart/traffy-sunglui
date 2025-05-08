@@ -3,19 +3,20 @@ import numpy as np
 from datetime import datetime, time, timedelta
 from ML.utils.logger import log_decorator
 from ML.data_prep.config import Config
-from ML.data_prep.client import client
+from ML.store.big_query import client
 from ML.data_prep.clean_table import insert_clean
 from ML.data_prep.orgs_table import get_orgs
-from datetime import datetime, timezone
 
 @log_decorator
 def load_df():
     query = """
         SELECT *
-        FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data`
-        WHERE PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', timestamp) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 HOUR)
-        ORDER BY PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', timestamp) DESC
-        LIMIT 1000
+        FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data` AS t1
+        JOIN `dsde-458712.bkk_traffy_fondue.weather_history` AS t2
+        ON DATE(PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%E6S%Ez', t1.timestamp)) = t2.date
+        WHERE PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%E6S%Ez', t1.timestamp) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 200 HOUR)
+        AND state = 'เสร็จสิ้น'
+        ORDER BY PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%E6S%Ez', t1.timestamp) DESC
     """
 
     return client.query(query).to_dataframe()
@@ -26,7 +27,6 @@ def calculate_duration(df):
         return pd.to_datetime(serie, format='ISO8601').dt.tz_localize(None) + timedelta(hours=7)
 
     df = df.copy()
-    df = df[df['state'] == 'เสร็จสิ้น']
 
     df['timestamp'] = toDate(df['timestamp'])
     df['last_activity'] = toDate(df['last_activity'])
@@ -199,7 +199,8 @@ def select_cols(df):
         'ความปลอดภัย',
         'ห้องน้ำ',
         'ป้ายจราจร',
-        'Others'
+        'Others',
+        'is_rain'
     ]
 
     feature_cols = [

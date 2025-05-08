@@ -1,5 +1,5 @@
 from google.cloud import bigquery
-from ML.data_prep.client import client
+from ML.store.big_query import client
 import requests
 from ML.data_prep.config import Config 
 import pandas as pd 

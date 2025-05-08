@@ -22,9 +22,9 @@ with DAG(
     catchup=False,
     tags=['traffy', 'bq'],
 ) as dag:
-    fetch_task = PythonOperator(
-        task_id='update_orgs_task',
+    train_model = PythonOperator(
+        task_id='train_model_task',
         python_callable=run
     )
 
-    fetch_task
+    train_model
