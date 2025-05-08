@@ -19,10 +19,6 @@ def test_health():
     return {"health": "OK"}
 
 
-# predict results from client (body) and return model
-# update model from path (param) and data (body) from cron job
-
-
 class PredictionRequest(BaseModel):
     organizations: list
     types: list
