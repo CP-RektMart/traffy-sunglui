@@ -55,6 +55,10 @@ with st.form(key='input_form'):
         st.write("Prediction for type:", (i for i in selected_types), "and organization:", (i for i in selected_orgs))
         no_of_hrs = response.json()["prediction"][0]
         delta = timedelta(hours=no_of_hrs)
-        highlighted_text = f'<div style="background-color:#FF0000;padding:10px;border-radius:5px;"><h3>Issue to be solved in : {delta.days} days</h3></div>'
+        highlighted_text = f'''
+        <div style="background-color:#333;padding:10px;border-radius:5px;color:white;">
+            Issue to be solved in : <span style="color:lightgreen;font-weight:bold;">{delta.days} days</span>
+        </div>
+        '''
         st.markdown(highlighted_text, unsafe_allow_html=True)
         
