@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import SGDRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -9,12 +8,21 @@ from ML.utils.logger import log_decorator
 from ML.train.storage_client import upload_to_gcs, download_from_gcs
 import pickle
 import os
+import requests
+from ML.store.big_query import client
 
 
 @log_decorator
-def load_data(path):
-    df = pd.read_csv(path)
-    return df
+def load_data():
+    query = """
+        SELECT *
+        FROM `dsde-458712.bkk_traffy_fondue.cleaned_data`
+        WHERE PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', created_at) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 HOUR)
+        ORDER BY PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', created_at) DESC
+        LIMIT 1000
+    """
+
+    return client.query(query).to_dataframe()
 
 @log_decorator
 def prep_data(df: pd.DataFrame):
@@ -44,9 +52,11 @@ def train_model(model, scaler, df, cfg: Config):
     # For visualization
     y_true_all, y_pred_all = [], []
 
+    print(df.info())
+
     # Example data stream
     for batch in stream_data(df, batch_size=cfg.batch_size):
-        X = batch.drop(columns=['log_duration'])
+        X = batch.drop(columns=['log_duration', 'created_at'])
         y = batch['log_duration']
 
         # Normalize input features
@@ -76,7 +86,7 @@ def calculate_loss(y_true_all, y_pred_all):
 
 def main():
     conf = Config()
-    df = load_data(conf.load_path)
+    df = load_data()
     df = prep_data(df)
     model, scaler = load_model(conf)
     train_model(model, scaler, df, conf)
@@ -90,6 +100,12 @@ def main():
         source_file_path=model_filename,
         destination_blob_name=model_filename,        
     )
+    try:
+        requests.post("http://localhost:3000/model-update", {
+            'path': 'model.pkl'
+        })
+    except Exception:
+        print('failed notify server', Exception)
 
     os.remove(model_filename)
 

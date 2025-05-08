@@ -28,3 +28,4 @@ rsa==4.9.1
 six==1.17.0
 tzdata==2025.2
 urllib3==2.4.0
+scikit-learn==1.6.1

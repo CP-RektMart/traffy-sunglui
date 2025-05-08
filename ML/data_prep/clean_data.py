@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime, time, timedelta
 from ML.utils.logger import log_decorator
 from ML.data_prep.config import Config
-from ML.data_prep.client import client
+from ML.store.big_query import client
 from ML.data_prep.clean_table import insert_clean
 from ML.data_prep.orgs_table import get_orgs, update_orgs
 
