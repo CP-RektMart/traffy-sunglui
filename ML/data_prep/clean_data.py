@@ -6,6 +6,7 @@ from ML.data_prep.config import Config
 from ML.store.big_query import client
 from ML.data_prep.clean_table import insert_clean
 from ML.data_prep.orgs_table import get_orgs
+from datetime import timezone
 
 @log_decorator
 def load_df():
@@ -229,14 +230,9 @@ def impute(df):
 
 @log_decorator
 def save(df):
-    now = datetime.now(timezone.utc)
-    formatted = now.strftime('%Y-%m-%d %H:%M:%S.%f%z')
-    formatted = formatted[:-2] + ':' + formatted[-2:]
-    df['created_at'] = formatted 
-
     insert_clean(df)
 
-def main():
+def clean_data():
     conf = Config()
     
     pipeline = [
@@ -258,4 +254,4 @@ def main():
     save(df)
 
 if __name__ == "__main__":
-    main()
+    clean_data()
