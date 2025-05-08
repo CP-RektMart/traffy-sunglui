@@ -6,6 +6,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from ML.train.config import Config
 from ML.utils.logger import log_decorator
+from ML.train.storage_client import upload_to_gcs, download_from_gcs
+import pickle
+import os
+
 
 @log_decorator
 def load_data(path):
@@ -23,7 +27,15 @@ def stream_data(df, batch_size):
 
 @log_decorator
 def load_model(cfg: Config):
-    model = SGDRegressor(loss=cfg.loss_function)  # or 'squared_loss'
+    download_from_gcs(
+        bucket_name="model_traffy_fongdue",
+        blob_name="model.pkl",
+        destination_file_name="model.pkl"
+    )
+
+    with open('model.pkl', 'rb') as f:
+        model = pickle.load(f)
+
     scaler = StandardScaler()
     return model, scaler
 
@@ -68,6 +80,18 @@ def main():
     df = prep_data(df)
     model, scaler = load_model(conf)
     train_model(model, scaler, df, conf)
+    
+    model_filename = 'model.pkl'
+    with open(model_filename, 'wb') as f:
+        pickle.dump(model, f)
+
+    upload_to_gcs(
+        bucket_name="model_traffy_fongdue",
+        source_file_path=model_filename,
+        destination_blob_name=model_filename,        
+    )
+
+    os.remove(model_filename)
 
 if __name__ == '__main__':
     main()
