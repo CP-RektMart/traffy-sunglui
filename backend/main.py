@@ -1,4 +1,6 @@
 # fastapi dev backend/main.py
+from datetime import datetime
+import pytz
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import os
@@ -8,26 +10,31 @@ import numpy as np
 from typing import Union
 from pydantic import BaseModel
 from ML.train.storage_client import download_from_gcs, upload_to_gcs
+import openmeteo_requests
 
 from fastapi import FastAPI
 
 app = FastAPI()
+openmeteo = openmeteo_requests.Client()
 
 model = None
+
 
 def load_model():
     global model
 
     download_from_gcs(
         bucket_name="model_traffy_fongdue",
-        blob_name='model.pkl',
+        blob_name="model.pkl",
         destination_file_name="model.pkl",
     )
 
     with open("model.pkl", "rb") as f:
         model = pickle.load(f)
 
+
 load_model()
+
 
 @app.get("/health")
 def test_health():
@@ -37,6 +44,7 @@ def test_health():
 class PredictionRequest(BaseModel):
     organizations: list
     types: list
+
 
 def load_org_data():
     load_dotenv()
@@ -53,6 +61,30 @@ def load_org_data():
 
     query = "SELECT * FROM `dsde-458712.bkk_traffy_fondue.orsgs_profile`"
     return client.query(query).to_dataframe()
+
+
+def is_rain():
+    today = datetime.now(pytz.timezone("Asia/Bangkok")).date().isoformat()
+
+    url = "https://archive-api.open-meteo.com/v1/archive"
+    params = {
+        "latitude": 13.736717,
+        "longitude": 100.523186,
+        "start_date": today,
+        "end_date": today,
+        "daily": ["rain_sum", "precipitation_hours", "precipitation_sum"],
+        "timezone": "Asia/Bangkok",
+    }
+
+    responses = openmeteo.weathxer_api(url, params=params)
+    response = responses[0]
+
+    daily = response.Daily()
+    rain_sum = daily.Variables(0).ValuesAsNumpy()[0]
+    precipitation_hours = daily.Variables(1).ValuesAsNumpy()[0]
+    precipitation_sum = daily.Variables(2).ValuesAsNumpy()[0]
+
+    return rain_sum > 0 or precipitation_sum > 0 or precipitation_hours > 0
 
 
 @app.post("/models/predict")
@@ -108,7 +140,7 @@ def predict(request: PredictionRequest):
         "avg_duration_minutes_finished"
     ].mean()
 
-    feature_values['is_rain'] = False
+    feature_values["is_rain"] = is_rain()
 
     for t in request.types:
         if t in feature_values:
