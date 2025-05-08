@@ -105,9 +105,7 @@ def main():
         destination_blob_name=model_filename,        
     )
     try:
-        requests.post("http://localhost:3000/model-update", {
-            'path': 'model.pkl'
-        })
+        requests.post("http://localhost:8000/models/update")
     except Exception:
         print('failed notify server', Exception)
 
