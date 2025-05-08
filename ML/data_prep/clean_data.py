@@ -5,7 +5,8 @@ from ML.utils.logger import log_decorator
 from ML.data_prep.config import Config
 from ML.data_prep.client import client
 from ML.data_prep.clean_table import insert_clean
-from ML.data_prep.orgs_table import get_orgs, update_orgs
+from ML.data_prep.orgs_table import get_orgs
+from datetime import datetime, timezone
 
 @log_decorator
 def load_df():
@@ -14,7 +15,7 @@ def load_df():
         FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data`
         WHERE PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', timestamp) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 HOUR)
         ORDER BY PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', timestamp) DESC
-        LIMIT 10
+        LIMIT 1000
     """
 
     return client.query(query).to_dataframe()
@@ -23,7 +24,7 @@ def load_df():
 def calculate_duration(df):
     def toDate(serie):
         return pd.to_datetime(serie, format='ISO8601').dt.tz_localize(None) + timedelta(hours=7)
-    
+
     df = df.copy()
     df = df[df['state'] == 'เสร็จสิ้น']
 
@@ -38,6 +39,7 @@ def handleNull(df: pd.DataFrame):
     df['type'].fillna('{}')
     df['organization'].fillna('')
     df.dropna(axis=0, how='any', subset=['timestamp', 'last_activity'], inplace=True)
+    
     return df
 
 @log_decorator
@@ -157,9 +159,10 @@ def orgs_wrapper(path, url):
 @log_decorator
 def normalize(df):
     df = df.copy()
-
+    
     df = df[df['duration'] > 0]
-    df['log_duration'] = df['duration'].apply(np.log1p) 
+
+    df['log_duration'] = df['duration'].apply(np.log) 
     
     lower_bound = 6
     upper_bound = 20
@@ -225,6 +228,11 @@ def impute(df):
 
 @log_decorator
 def save(df):
+    now = datetime.now(timezone.utc)
+    formatted = now.strftime('%Y-%m-%d %H:%M:%S.%f%z')
+    formatted = formatted[:-2] + ':' + formatted[-2:]
+    df['created_at'] = formatted 
+
     insert_clean(df)
 
 def main():

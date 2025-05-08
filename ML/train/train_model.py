@@ -6,15 +6,21 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from ML.train.config import Config
 from ML.utils.logger import log_decorator
+from ML.train.storage_client import upload_to_gcs, download_from_gcs
+import pickle
+import os
+
+from ML.train.client import client
 
 @log_decorator
-def load_data(path):
-    df = pd.read_csv(path)
-    return df
+def load_data():
+    query = """
+        SELECT *
+        FROM `dsde-458712.bkk_traffy_fondue.cleaned_data`
+        WHERE PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', created_at) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 12 HOUR)
+    """
 
-@log_decorator
-def prep_data(df: pd.DataFrame):
-    return df.drop(columns=['duration'])
+    return client.query(query).to_dataframe()
 
 @log_decorator
 def stream_data(df, batch_size):
@@ -23,7 +29,15 @@ def stream_data(df, batch_size):
 
 @log_decorator
 def load_model(cfg: Config):
-    model = SGDRegressor(loss=cfg.loss_function)  # or 'squared_loss'
+    download_from_gcs(
+        bucket_name="model_traffy_fongdue",
+        blob_name="model.pkl",
+        destination_file_name="model.pkl"
+    )
+
+    with open('model.pkl', 'rb') as f:
+        model = pickle.load(f)
+
     scaler = StandardScaler()
     return model, scaler
 
@@ -34,7 +48,7 @@ def train_model(model, scaler, df, cfg: Config):
 
     # Example data stream
     for batch in stream_data(df, batch_size=cfg.batch_size):
-        X = batch.drop(columns=['log_duration'])
+        X = batch.drop(columns=['log_duration', 'duration', 'created_at'])
         y = batch['log_duration']
 
         # Normalize input features
@@ -64,10 +78,21 @@ def calculate_loss(y_true_all, y_pred_all):
 
 def main():
     conf = Config()
-    df = load_data(conf.load_path)
-    df = prep_data(df)
+    df = load_data()
     model, scaler = load_model(conf)
     train_model(model, scaler, df, conf)
+    
+    model_filename = 'model.pkl'
+    with open(model_filename, 'wb') as f:
+        pickle.dump(model, f)
+
+    upload_to_gcs(
+        bucket_name="model_traffy_fongdue",
+        source_file_path=model_filename,
+        destination_blob_name=model_filename,        
+    )
+
+    os.remove(model_filename)
 
 if __name__ == '__main__':
     main()
