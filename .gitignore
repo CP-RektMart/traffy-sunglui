@@ -64,3 +64,5 @@ MANIFEST
 .env.*
 *.bak
 *.tmp
+
+data-viz/dsde-458712-2c709a260944.json
