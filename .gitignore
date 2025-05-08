@@ -40,6 +40,10 @@ ENV/
 *.swn
 docker-compose.override.yml
 
+# back-end
+backend/*.json
+model.pkl
+
 # Airflow DB and config artifacts
 airflow.db
 airflow.cfg
