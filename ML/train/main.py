@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import SGDRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from ML.train.config import Config
 from ML.utils.logger import log_decorator
@@ -17,8 +18,8 @@ def load_data():
     query = """
         SELECT *
         FROM `dsde-458712.bkk_traffy_fondue.cleaned_data`
-        WHERE PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', created_at) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 HOUR)
-        ORDER BY PARSE_TIMESTAMP(\'%Y-%m-%d %H:%M:%E6S%Ez\', created_at) DESC
+        WHERE TIMESTAMP(created_at) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 HOUR)
+        ORDER BY created_at DESC
         LIMIT 1000
     """
 
@@ -35,14 +36,18 @@ def stream_data(df, batch_size):
 
 @log_decorator
 def load_model(cfg: Config):
-    download_from_gcs(
-        bucket_name="model_traffy_fongdue",
-        blob_name="model.pkl",
-        destination_file_name="model.pkl"
-    )
+    try:
+        download_from_gcs(
+            bucket_name="model_traffy_fongdue",
+            blob_name="model.pkl",
+            destination_file_name="model.pkl"
+        )
+        with open('model.pkl', 'rb') as f:
+            model = pickle.load(f)
+    except Exception:
+        print('no model file in cloud')
+        model = SGDRegressor()
 
-    with open('model.pkl', 'rb') as f:
-        model = pickle.load(f)
 
     scaler = StandardScaler()
     return model, scaler
