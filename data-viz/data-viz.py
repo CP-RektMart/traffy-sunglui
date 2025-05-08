@@ -29,7 +29,7 @@ def load_data():
     # type must not be empty
     # timestamp must be less than last_activity
     # state must be 'เสร็จสิ้น'
-    # duration must be less than 20k minutes
+    # duration must be less than 2k minutes
     query = """
         SELECT *
         FROM `dsde-458712.bkk_traffy_fondue.traffy_fondue_data`
@@ -46,7 +46,7 @@ def load_data():
         AND timestamp < last_activity
         AND state = 'เสร็จสิ้น'
         AND type != '{}'
-        AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) < 20000
+        AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) < 2000
         AND TIMESTAMP_DIFF(TIMESTAMP(last_activity), TIMESTAMP(timestamp), MINUTE) > 0
         LIMIT 1000
     """
@@ -86,8 +86,8 @@ MAP_STYLES = {
 
 # df['duration'] = (df['last_activity'] - df['timestamp']).dt.total_seconds() // 60
 
-# # remove those with duration > 20k
-# df = df[df['duration'] <= 20000]
+# # remove those with duration > 2k
+# df = df[df['duration'] <= 2000]
 
 # use only 10000 rows for testing
 # df = df.sample(n=10000, random_state=42)
