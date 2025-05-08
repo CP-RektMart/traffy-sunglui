@@ -28,18 +28,24 @@ class PredictionRequest(BaseModel):
     types: list
 
 
-def load_model():
-    bucket_name = "model_traffy_fongdue"
-    blob_name = "model.pkl"
-    destination_blob_name = "model.pkl"
-
+def load_model(path):
     download_from_gcs(
-        bucket_name=bucket_name,
-        blob_name=blob_name,
-        destination_file_name=destination_blob_name,
+        bucket_name="model_traffy_fongdue",
+        blob_name=path,
+        destination_file_name="model.pkl",
     )
 
     print("Load model DONE!")
+
+
+def save_model():
+    upload_to_gcs(
+        bucket_name="model_traffy_fongdue",
+        blob_name="model.pkl",
+        destination_file_name="model.pkl",
+    )
+
+    print("save model DONE!")
 
 
 def load_org_data():
@@ -61,7 +67,7 @@ def load_org_data():
 
 @app.get("/models/predict")
 def predict(request: PredictionRequest):
-    load_model()
+    load_model("model.pkl")
 
     with open("model.pkl", "rb") as f:
         model = pickle.load(f)
@@ -128,9 +134,10 @@ def predict(request: PredictionRequest):
 
 
 class UpdateRequest(BaseModel):
-    data: list
+    path: str
 
 
 @app.put("/models/update")
-def update():
-    return {"l": "sadsad"}
+def update(request: UpdateRequest):
+    load_model(request.path)
+    return {"success": "OK"}
